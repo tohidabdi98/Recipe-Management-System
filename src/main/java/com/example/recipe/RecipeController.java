@@ -2,6 +2,7 @@ package com.example.recipe;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,13 +21,19 @@ import java.util.Map;
 public class RecipeController {
 
     private final RecipeRepository recipeRepository;
+    private final AppUserRepository userRepository;
 
-    public RecipeController(RecipeRepository recipeRepository) {
+    public RecipeController(RecipeRepository recipeRepository, AppUserRepository userRepository) {
         this.recipeRepository = recipeRepository;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/new")
-    public ResponseEntity<RecipeId> saveRecipe(@Valid @RequestBody Recipe recipe) {
+    public ResponseEntity<RecipeId> saveRecipe(
+            @Valid @RequestBody Recipe recipe,
+            Authentication authentication) {
+        AppUser author = userRepository.findByEmailIgnoreCase(authentication.getName()).orElseThrow();
+        recipe.setAuthor(author);
         Recipe savedRecipe = recipeRepository.save(recipe);
         return ResponseEntity.ok(new RecipeId(savedRecipe.getId()));
     }
@@ -39,9 +46,15 @@ public class RecipeController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updateRecipe(@PathVariable long id, @Valid @RequestBody Recipe recipe) {
+    public ResponseEntity<Void> updateRecipe(
+            @PathVariable long id,
+            @Valid @RequestBody Recipe recipe,
+            Authentication authentication) {
         return recipeRepository.findById(id)
                 .map(existingRecipe -> {
+                    if (!isAuthor(existingRecipe, authentication)) {
+                        return ResponseEntity.status(403).<Void>build();
+                    }
                     existingRecipe.setName(recipe.getName());
                     existingRecipe.setCategory(recipe.getCategory());
                     existingRecipe.setDescription(recipe.getDescription());
@@ -54,12 +67,16 @@ public class RecipeController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRecipe(@PathVariable long id) {
-        if (!recipeRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        recipeRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> deleteRecipe(@PathVariable long id, Authentication authentication) {
+        return recipeRepository.findById(id)
+                .map(recipe -> {
+                    if (!isAuthor(recipe, authentication)) {
+                        return ResponseEntity.status(403).<Void>build();
+                    }
+                    recipeRepository.delete(recipe);
+                    return ResponseEntity.noContent().<Void>build();
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/search")
@@ -82,5 +99,10 @@ public class RecipeController {
             return ResponseEntity.badRequest().build();
         }
         return ResponseEntity.ok(recipeRepository.findByNameContainingIgnoreCaseOrderByDateDesc(name));
+    }
+
+    private boolean isAuthor(Recipe recipe, Authentication authentication) {
+        return recipe.getAuthor() != null
+                && recipe.getAuthor().getEmail().equalsIgnoreCase(authentication.getName());
     }
 }

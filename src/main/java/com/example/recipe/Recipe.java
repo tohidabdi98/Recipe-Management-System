@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.PrePersist;
@@ -44,6 +45,11 @@ public class Recipe {
 
     @NotBlank
     private String description;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "author_id", nullable = true)
+    private AppUser author;
 
     @NotEmpty
     @ElementCollection(fetch = FetchType.EAGER)
@@ -123,6 +129,15 @@ public class Recipe {
 
     public void setDirections(List<String> directions) {
         this.directions = directions;
+    }
+
+    @JsonIgnore
+    public AppUser getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(AppUser author) {
+        this.author = author;
     }
 
     @PrePersist
