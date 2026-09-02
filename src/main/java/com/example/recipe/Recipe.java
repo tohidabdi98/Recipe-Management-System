@@ -1,6 +1,7 @@
 package com.example.recipe;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -12,9 +13,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,6 +34,13 @@ public class Recipe {
 
     @NotBlank
     private String name;
+
+    @NotBlank
+    @Column(nullable = true)
+    private String category;
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private LocalDateTime date;
 
     @NotBlank
     private String description;
@@ -51,15 +62,18 @@ public class Recipe {
     public Recipe() {
     }
 
-    public Recipe(String name, String description, List<String> ingredients, List<String> directions) {
+    public Recipe(String name, String category, String description,
+                  List<String> ingredients, List<String> directions) {
         this.name = name;
+        this.category = category;
         this.description = description;
         this.ingredients = ingredients;
         this.directions = directions;
     }
 
-    public Recipe(String name, String description, String[] ingredients, String[] directions) {
-        this(name, description, Arrays.asList(ingredients), Arrays.asList(directions));
+    public Recipe(String name, String category, String description,
+                  String[] ingredients, String[] directions) {
+        this(name, category, description, Arrays.asList(ingredients), Arrays.asList(directions));
     }
 
     @JsonIgnore
@@ -73,6 +87,18 @@ public class Recipe {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public LocalDateTime getDate() {
+        return date;
     }
 
     public String getDescription() {
@@ -97,5 +123,15 @@ public class Recipe {
 
     public void setDirections(List<String> directions) {
         this.directions = directions;
+    }
+
+    @PrePersist
+    void onCreate() {
+        date = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        date = LocalDateTime.now();
     }
 }
